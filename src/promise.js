@@ -87,29 +87,66 @@ class Promises {
     return new Promises((resolve, reject) => reject(reason));
   }
 
-  /**race 静态方法 */
+  /**
+   * race 静态方法
+   * 返回一个 promise, 一旦迭代器中的某个promise resolve or reject, 返回的 promise 就会解决 或 拒绝
+   **/
   static race(promises) {
+    // return new Promises((resolve, reject) => {
+    //   for (let i = 0, len = promises.length; i < len; i++) promises[i].then(resolve, reject);
+    // });
     return new Promises((resolve, reject) => {
-      for (let i = 0, len = promises.length; i < len; i++) promises[i].then(resolve, reject);
+      /**同时执行 Promise, 如果有个promise状态发生改变, 就变更 Promises 的状态 */
+      for (const p of promises) {
+        /**Promise.resolve(p)用于处理传入值不为Promise的情况 */
+        Promises.resolve(p).then(
+          /**意这个resolve是上边new MyPromise的 */
+          value => resolve(value),
+          error => reject(error)
+        );
+      }
     });
   }
 
-  /**all 静态方法 => 获取所有的promise，都执行then，把结果放到数组，一起返回 */
+  /**
+   * all 静态方法 => 获取所有的promise，都执行then，把结果放到数组，一起返回
+   * 返回一个 Promise 实例, 此实例在 iterable 参数内所有的 promise 都 resolve 或参数中不包含 promise 时回调完成(resolve)
+   * 如果promise中有个reject, 此实例回调 reject, 失败原因的是第一个promise的结果
+   **/
   static all(promises) {
-    const arr = [];
-    let i = 0;
-    function processData(index, data, resolve) {
-      arr[index] = data;
-      i++;
-      if (i === promises.length) resolve(arr);
-    }
+    // const arr = [];
+    // let i = 0;
+    // function processData(index, data, resolve) {
+    //   arr[index] = data;
+    //   i++;
+    //   if (i === promises.length) resolve(arr);
+    // }
 
+    // return new Promises((resolve, reject) => {
+    //   for (let i = 0, len = promises.length; i < len; i++) {
+    //     promises[i].then(data => {
+    //       processData(i, data, resolve);
+    //     }, reject);
+    //   }
+    // });
+    let index = 0,
+      result = [];
     return new Promises((resolve, reject) => {
-      for (let i = 0, len = promises.length; i < len; i++) {
-        promises[i].then(data => {
-          processData(i, data, resolve);
-        }, reject);
-      }
+      promises.forEach(
+        (p, i) => {
+          /**Promise.resolve(p)用于处理传入值不为Promise的情况 */
+          Promises.resolve(p).then(value => {
+            index++;
+            result[i] = value;
+            /**所有 then 执行后, resolve 结果 */
+            if (index === promises.length) resolve(result);
+          });
+        },
+        error => {
+          /**有一个Promise被reject时，MyPromise的状态变为reject */
+          reject(error);
+        }
+      );
     });
   }
 
@@ -120,7 +157,7 @@ class Promises {
   }
 
   /**
-   * finally 方法 
+   * finally 方法
    * 意义: finally()如果return了一个reject状态的Promise，将会改变当前Promise的状态
    * 这个Promises.resolve就用于改变Promise状态，在finally()没有返回reject态Promise或throw错误的情况下，去掉Promises.resolve也是一样的
    **/

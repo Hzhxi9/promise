@@ -5,10 +5,7 @@ const REJECTED = 'rejected';
 
 class Promises {
   constructor(executor) {
-    /**
-     * 执行器, 进入会立即执行
-     * 并传入 resolve 和 reject
-     **/
+    /**执行器, 进入会立即执行,并传入 resolve 和 reject */
     try {
       executor(this.resolve, this.reject);
     } catch (error) {
@@ -39,7 +36,10 @@ class Promises {
 
   /**更改成功后的状态 */
   resolve = value => {
-    /**只有状态是等待时才执行状态修改 */
+    /**
+     * 只有状态是等待时才执行状态修改
+     * 对应规范中的状态只能由pending到fulfilled或rejected"
+     **/
     if (this.status === PENDING) {
       /**修改状态为成功 */
       this.status = FULFILLED;
@@ -47,7 +47,12 @@ class Promises {
       this.value = value;
       /**resolve里面将所有成功的回调拿出来执行 */
       while (this.onFulfilledCallbacks.length) {
-        /**Array.shift() 取出数组第一个元素，然后（）调用,shift不是纯函数，取出后，数组将失去该元素，直到数组为空 */
+        /**
+         * Array.shift() 取出数组第一个元素，然后（）调用,shift不是纯函数，取出后，数组将失去该元素，直到数组为空
+         *
+         * 之所以使用一个队列来存储回调, 是为了实现规范要求 then 方法可以被同一个 promise 调用多次
+         * 如果使用一个变量而非队列来储存回调,那么即使多次p1.then()也只会执行一次回调
+         **/
         this.onFulfilledCallbacks.shift()(value);
       }
     }
@@ -93,7 +98,7 @@ class Promises {
   static all(promises) {
     const arr = [];
     let i = 0;
-    function processData(index, data,resolve) {
+    function processData(index, data, resolve) {
       arr[index] = data;
       i++;
       if (i === promises.length) resolve(arr);
@@ -108,8 +113,33 @@ class Promises {
     });
   }
 
+  /**catch 方法 => 返回一个 Promise, 并且处理拒绝的情况 */
+  catch(reject) {
+    /**本质就是 执行一下 then 的第二个回调 */
+    return this.then(undefined, reject);
+  }
+
+  /**
+   * finally 方法 
+   * 意义: finally()如果return了一个reject状态的Promise，将会改变当前Promise的状态
+   * 这个Promises.resolve就用于改变Promise状态，在finally()没有返回reject态Promise或throw错误的情况下，去掉Promises.resolve也是一样的
+   **/
+  finally(callback) {
+    return this.then(
+      /**Promises.resolve执行回调,并在then中return结果传递给后面的Promise */
+      value => Promises.resolve(callback()).then(() => value),
+      reason =>
+        Promises.resolve(callback()).then(() => {
+          throw reason;
+        })
+    );
+  }
+
   then(onFulfilled, onRejected) {
-    /**如果不传, 就使用默认函数 */
+    /**
+     * 如果不传, 就使用默认函数
+     * 根据规范, 如果then参数不是函数, 则需要忽略它, 让链式调用继续往下执行
+     **/
     const realOnFulfilled = typeof onFulfilled === 'function' ? onFulfilled : value => value;
     const realOnRejected =
       typeof onRejected === 'function'
@@ -125,9 +155,17 @@ class Promises {
         /**创建一个微任务等待 promises2 完成初始化 */
         queueMicrotask(() => {
           try {
-            /**调用成功回调, 并且把值返回 */
+            /**
+             * 调用成功回调, 并且把值返回
+             * 执行第一个(当前)的Promise的成功回调, 并获取返回值
+             **/
             const x = realOnFulfilled(this.value);
-            /**传入 resolvePromises 集中处理 */
+            /**
+             * resolvePromises =>
+             *  1. 分类讨论返回值, 如果是Promise, 那么等待Promise状态变更, 否则直接resolve
+             *  2. 这里 resolve 之后, 就能被下一个 then 的回调获取到返回值, 从而实现链式调用
+             * 传入 resolvePromises 集中处理
+             * */
             resolvePromises(promises2, x, resolve, reject);
           } catch (error) {
             reject(error);
@@ -156,9 +194,11 @@ class Promises {
        */
       switch (this.status) {
         case FULFILLED:
+          /**当状态已经变为resolve时,直接执行then回调 */
           fulfilledMicrotask();
           break;
         case REJECTED:
+          /**当状态已经变为reject时,直接执行then回调 */
           rejectedMicrotask();
           break;
         case PENDING:
@@ -166,6 +206,9 @@ class Promises {
            * 因为不知道后续状态的变化情况,
            * 所以将成功和失败的回调函数存储起来
            * 等到执行成功失败函数的时候在传递
+           *
+           * 当状态为pending时,把then回调push进resolve/reject执行队列,等待执行
+           * 把后续then收集的依赖都push进当前Promise的成功回调队列和失败回调队列中(_rejectQueue), 这是为了保证顺序调用
            */
           this.onFulfilledCallbacks.push(fulfilledMicrotask);
           this.onRejectedCallbacks.push(rejectedMicrotask);

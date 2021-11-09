@@ -1,7 +1,13 @@
 {
   "name": "promise",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "promise.js",
   "author": "huangzx <48216476+Hzhxi9@users.noreply.github.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "test": "promises-aplus-tests src/promise"
+  },
+  "devDependencies": {
+    "promises-aplus-tests": "^2.1.2"
+  }
 }

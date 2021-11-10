@@ -425,3 +425,73 @@ function defineIteratorMethods(prototype) {
 
 defineIteratorMethods(Gp);
 ```
+
+十、 低配实现 & 调用流程分析
+
+1. 低配实现
+
+```js
+/**
+ * 生成器函数根据yield语句将代码分割为switch-case块，
+ * 后续通过切换_context.prev和_context.next来分别执行各个case
+ */
+function gen$(_context){
+  while(1){
+    switch(_context.prev = _context.next){
+      case 0:
+        _context.next = 2;
+        return 'result1';
+      case 2:
+        _context.next = 4;
+        return 'result2;
+      case 4:
+        _context.next = 6;
+        return 'result3';
+      case 6:
+      case 'end':
+        return _context.stop();
+    }
+  }
+}
+/**低配版context*/
+var context = {
+  next: 0,
+  prev: 0,
+  done: false,
+  stop: function stop(){
+    this.done = true
+  }
+}
+/**低配版invoke*/
+let gen = function(){
+  return {
+    next: function(){
+      const value = context.done? undefined: gen$(context);
+      const done = context.done;
+      return { value, done }
+    }
+  }
+}
+/**测试使用*/
+var g = gen();
+g.next() // {value: "result1", done: false}
+g.next() // {value: "result2", done: false}
+g.next() // {value: "result3", done: false}
+g.next() // {value: undefined, done: true}
+```
+
+2. 流程分析
+
+- 我们定义的 function\* 生成器函数被转化为以上代码
+- 转化后的代码分为三大块
+
+  - gen$(\_context): 由 yield 分割生成器函数代码而来
+  - context 对象: 用于存储执行上下文
+  - invoke()方法: 定义 next(), 用于执行 gen$(\_context)来跳到下一步
+
+- 当我们调用 g.next(), 就相当于调用了 invoke 方法, 执行 gen$(\_context), 进行 switch 语句, switch 根据 context 的标识, 执行对应的 case 块, return 对应结果
+- 当生成器函数运行到末尾（没有下一个 yield 或已经 return），switch 匹配不到对应代码块，就会 return 空值，这时 g.next()返回{value: undefined, done: true}
+
+3. 总结
+
+Generator 实现的核心在于上下文的保存，函数并没有真的被挂起，每一次 yield，其实都执行了一遍传入的生成器函数，只是在这个过程中间用了一个 context 对象储存上下文，使得每次执行生成器函数的时候，都可以从上一个执行结果开始执行，看起来就像函数被挂起了一样

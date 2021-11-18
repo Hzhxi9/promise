@@ -19,15 +19,31 @@ const p = new Promises((resolve, reject) => {
 //   );
 
 const p1 = new Promises((resolve, reject) => {
-  setTimeout(() => resolve(3), 2000);
+  setTimeout(() => resolve(3), 5000);
 });
 
-const p2 =  new Promises((resolve, reject) => {
-  setTimeout(() => resolve(4), 3000);
+const p2 = new Promises((resolve, reject) => {
+  setTimeout(() => reject(4), 3000);
 });
 
-Promises.all([p1, p2]).then(res => console.log(res))
-
-Promises.race([p1, p2]).then((res) => {
-  console.log(res);
+Promises.allSettled([p1, p2]).then(result => {
+  console.log(result, '==allSettled==');
 });
+
+Promises.any([p1, p2]).then(results => {
+  console.log(results, '===any===')
+})
+
+Promises.all([p1, p2])
+  .then(res => console.log(res))
+  .catch(error => {
+    console.log('all =>', error);
+  });
+
+Promises.race([p1, p2])
+  .then(res => {
+    console.log(res);
+  })
+  .catch(error => {
+    console.log('error=> ', error);
+  });

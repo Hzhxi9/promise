@@ -132,21 +132,73 @@ class Promises {
     let index = 0,
       result = [];
     return new Promises((resolve, reject) => {
-      promises.forEach(
-        (p, i) => {
-          /**Promise.resolve(p)用于处理传入值不为Promise的情况 */
-          Promises.resolve(p).then(value => {
+      promises.forEach((p, i) => {
+        /**Promise.resolve(p)用于处理传入值不为Promise的情况 */
+        Promises.resolve(p).then(
+          value => {
             index++;
             result[i] = value;
             /**所有 then 执行后, resolve 结果 */
             if (index === promises.length) resolve(result);
-          });
-        },
-        error => {
-          /**有一个Promise被reject时，MyPromise的状态变为reject */
-          reject(error);
-        }
-      );
+          },
+          error => {
+            /**有一个Promise被reject时，MyPromise的状态变为reject */
+            reject(error);
+          }
+        );
+      });
+    });
+  }
+
+  /**
+   * allSettled 静态方法 => 方法返回一个在所有给定的promise已被决议或被拒绝后决议的Promise
+   * 并带有一个对象数组，每个对象表示对应的promise结果。
+   */
+  static allSettled(promises) {
+    let result = [],
+      index = 0;
+    return new Promises((resolve, reject) => {
+      promises.map((p, i) => {
+        Promises.resolve(p).then(
+          value => {
+            index++;
+            result[i] = { value, status: FULFILLED };
+            if (index === promises.length) resolve(result);
+          },
+          reason => {
+            index++;
+            result[i] = { reason, status: REJECTED };
+            if (index === promises.length) resolve(result);
+          }
+        );
+      });
+    });
+  }
+
+  /**
+   * 接收一个Promise.all()是相反的。
+   * 当任何一个被传入的 promise 完成的时候, 无论其他的 promises 完成还是被拒绝，返回的这个 promise 都会带着已完成的那个 promise 的值异步完成。
+   */
+  static any(promises) {
+    let index = 0,
+      result = null;
+    return new Promises((resolve, reject) => {
+      promises.forEach((p, i) => {
+        /**Promise.resolve(p)用于处理传入值不为Promise的情况 */
+        Promises.resolve(p).then(
+          value => {
+            index++;
+            result = value;
+            resolve(result)
+            /**所有 then 执行后, resolve 结果 */
+            
+          },
+          error => {
+            /**有一个Promise被reject时，MyPromise的状态变为reject */
+            index++;
+          }
+        );
+      });
     });
   }
 

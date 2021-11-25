@@ -28,6 +28,8 @@ const p2 = new Promises((resolve, reject) => {
 
 Promises.allSettled([p1, p2]).then(result => {
   console.log(result, '==allSettled==');
+}).v(result => {
+  console.log(result)
 });
 
 Promises.any([p1, p2]).then(results => {
